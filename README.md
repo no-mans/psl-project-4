@@ -1,12 +1,19 @@
-# BookRecommender
+# MovieRocommender
 
-This is code for a shiny app for a book recommender based on collaborative filtering. 
+Webapp code is based on https://github.com/pspachtholz/BookRecommender
 
-For more information: See this [kernel](https://www.kaggle.com/philippsp/book-recommender-collaborative-filtering-shiny) on Kaggle.com.
+## installation
 
-Credits:
-My thanks go to the following persons:
-1. Stefan Nicklic for his [improved implementation of collaborative filtering](https://github.com/smartcat-labs/collaboratory).
-2. Stefan Wilhelm for providing [ShinyRatingInput](https://github.com/stefanwilhelm/ShinyRatingInput).
-3. Dean Attali for his work on [shinyJS](https://github.com/daattali/shinyjs).
-4. Kaggle user [Foxtrot](https://www.kaggle.com/zygmunt) for providing the [goodbooks dataset](https://www.kaggle.com/zygmunt/goodbooks-10k).
+```r
+install.packages("devtools")
+devtools::install_github("stefanwilhelm/ShinyRatingInput")
+devtools::install_github("fxcoudert/gfortran-for-macOS")
+```
+
+```r
+install.packages("shinydashboard")
+install.packages("recommenderlab")
+irlba
+shinyjs
+
+```
