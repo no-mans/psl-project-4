@@ -12,6 +12,7 @@ get_system_2_recommendations = function(movies, user_ratings){
 
 
 get_user_ratings = function(value_list) {
+  print(value_list)
   dat = data.table(MovieID = sapply(strsplit(names(value_list), "_"), 
                                     function(x) ifelse(length(x) > 1, x[[2]], NA)),
                    Rating = unlist(as.character(value_list)))

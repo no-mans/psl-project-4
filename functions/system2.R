@@ -1,6 +1,7 @@
 # system2
 
 get_colab_recommendation = function(movies, user_ratings){
+  print(user_ratings)
   user_results = (1:10)/10
   user_predicted_ids = 1:10
   data.table(Rank = 1:10,
