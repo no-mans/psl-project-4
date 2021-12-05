@@ -1,0 +1,160 @@
+---
+title: "Movielense Data: Collaborative Recommendation"
+author: 
+  - Noam Mansovsky, noamm2@illinois.edu
+  - Tatiana Sokolinski, tatiana9@illinois.edu
+date: "12/5/2021"
+output:
+  html_document: 
+    theme: yeti
+    toc: yes
+urlcolor: cyan
+---
+***
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 4, width = 80, fig.align = "center")
+
+mypackages = c( "dplyr","ggplot2","recommenderlab","DT","data.table","reshape2","Matrix","proxy","doBy")   
+tmp = setdiff(mypackages, rownames(installed.packages())) 
+if (length(tmp) > 0) install.packages(tmp)
+
+library(dplyr)
+library(ggplot2)
+library(recommenderlab)
+library(DT)
+library(data.table)
+library(reshape2)
+library(Matrix)
+library(proxy)
+library(doBy) # to get top-n elements
+library(knitr)
+```
+
+
+## Read in Data
+
+### Ratings data:
+```{r}
+myurl = "https://liangfgithub.github.io/MovieData/"
+ratings = read.csv(paste0(myurl, 'ratings.dat?raw=true'), 
+                   sep = ':',
+                   colClasses = c('integer', 'NULL'), 
+                   header = FALSE)
+colnames(ratings) = c('UserID', 'MovieID', 'Rating', 'Timestamp')
+head(ratings, 5)
+```
+
+### User data:
+```{r}
+users = read.csv(paste0(myurl, 'users.dat?raw=true'),
+                 sep = ':', header = FALSE)
+users = users[, -c(2,4,6,8)] # skip columns
+colnames(users) = c('UserID', 'Gender', 'Age', 'Occupation', 'Zip-code')
+head(users, 5)
+```
+
+### Movies data:
+
+```{r}
+movies = readLines(paste0(myurl, 'movies.dat?raw=true'))
+movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
+movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
+movies = data.frame(movies, stringsAsFactors = FALSE)
+colnames(movies) = c('MovieID', 'Title', 'Genres')
+movies$MovieID = as.integer(movies$MovieID)
+
+# convert accented characters
+movies$Title[73]
+movies$Title = iconv(movies$Title, "latin1", "UTF-8")
+movies$Title[73]
+
+# extract year
+movies$Year = as.numeric(unlist(
+  lapply(movies$Title, function(x) substr(x, nchar(x)-4, nchar(x)-1))))
+head(movies, 5)
+```
+
+***
+# System II: Collaborative Recommendation System
+
+## 1. User-based recommendation:
+
+User-Based Collaborative Filtering is an algorithm used to predict the items that a user might like on the basis of ratings given to that item by the other users who have similar taste with that of the target user.
+
+- **Create the user profile matrix:**
+
+Create ratings matrix using MovieID, UserID and Ratings fields.
+```{r}
+# Create ratings matrix. Rows = UserID, Columns = MovieID
+ratingmat <- dcast(ratings, UserID~MovieID, value.var = "Rating", na.rm=FALSE)
+ratingmat <- as.matrix(ratingmat[,-1]) #remove userIds
+# Convert rating matrix into a recommenderlab sparse matrix
+ratingmat <- as(ratingmat, "realRatingMatrix")
+dim(ratingmat)
+```
+
+- **Train and test splits:**
+
+The `evaluationScheme()` function can split the data set into training and testing subsets:
+
+- **train** matrix contains about 80% rows of `rating` dataset
+
+- **test** matrix contains about 20% rows of `rating` dataset
+
+The output of the evaluationScheme() function is a single R object containing both the training and testing subsets.
+
+```{r}
+set.seed(9335)
+# split the data into the training and the test set:
+percent_train = 0.8
+items_to_keep = 15        # items to use for each user
+eval_sets <- evaluationScheme(ratingmat, method="split", train=percent_train, given=items_to_keep, goodRating=0)
+eval_sets
+```
+
+- **Build Recommender Model**
+
+Build Recommender Model using User-Based Collaborative Filtering using `recommenderlab` library. Set method equals to "UBCF", use Cosine Similarity and 30 Nearest Neighbors as parameters.
+```{r}
+# Create Recommender Model using User-Based Collaborative Filtering
+UBCF_model <- Recommender(getData(eval_sets, "train"), "UBCF", 
+                           param=list(normalize = "Z-score",method="Cosine",nn=30))
+```
+
+- **Evaluate your model:**
+
+To evaluate the model we use the `recommenderlab` package. We first use the `predict()` function to generate predictions for the known portion of the test data. Then, the `calcPredictAccuracy()` function to calculate the error between the predictions and the unknown portions of the test data.
+
+```{r}
+items_to_recommend = 10
+eval_prediction = predict(object = UBCF_model,
+                          newdata = getData(eval_sets, "known"),
+                          n = items_to_recommend,
+                          type = "ratings")
+# Get model performance
+eval_accuracy = calcPredictionAccuracy(x = eval_prediction,
+                                       data = getData(eval_sets, "unknown"),
+                                       byUser = FALSE)
+eval_accuracy
+```
+- **Get recommendations:**
+
+```{r}
+# Obtain top 10 recommendations for n user in dataset
+UserID = 1
+recom <- predict(UBCF_model, ratingmat[UserID], n=items_to_recommend) 
+recom_list <- as(recom, "list") #convert recommenderlab object to readable list
+ 
+# Obtain recommendations
+recom_result <- matrix(0,items_to_recommend)
+for (i in c(1:items_to_recommend)){
+ recom_result[i] <- movies[as.integer(recom_list[[1]][i]),2]
+}
+recom_result
+```
+
+
+***
+
+
