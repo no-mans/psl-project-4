@@ -1,5 +1,5 @@
 ---
-title: "Movielense Data: Recommendation Based on Genres"
+title: "Movielense Data: Content-Based Recommendation"
 author: 
   - Tatiana Sokolinski, tatiana9@illinois.edu
   - Noam Mansovsky, noamm2@illinois.edu
