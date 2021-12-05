@@ -1,0 +1,205 @@
+---
+title: "Movielense Data: Recommendation Based on Genres"
+author: 
+  - Tatiana Sokolinski, tatiana9@illinois.edu
+  - Noam Mansovsky, noamm2@illinois.edu
+date: "12/2/2021"
+output:
+  html_document: 
+    theme: yeti
+    toc: yes
+urlcolor: cyan
+---
+***
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 4, width = 80, fig.align = "center")
+
+mypackages = c( "dplyr","ggplot2","recommenderlab","DT","data.table","reshape2","Matrix","proxy","doBy")   
+tmp = setdiff(mypackages, rownames(installed.packages())) 
+if (length(tmp) > 0) install.packages(tmp)
+
+library(dplyr)
+library(ggplot2)
+library(recommenderlab)
+library(DT)
+library(data.table)
+library(reshape2)
+library(Matrix)
+library(proxy)
+library(doBy) # to get top-n elements
+```
+
+
+## Read in Data
+
+### Ratings data:
+```{r}
+myurl = "https://liangfgithub.github.io/MovieData/"
+ratings = read.csv(paste0(myurl, 'ratings.dat?raw=true'), 
+                   sep = ':',
+                   colClasses = c('integer', 'NULL'), 
+                   header = FALSE)
+colnames(ratings) = c('UserID', 'MovieID', 'Rating', 'Timestamp')
+head(ratings, 5)
+```
+
+### User data:
+```{r}
+users = read.csv(paste0(myurl, 'users.dat?raw=true'),
+                 sep = ':', header = FALSE)
+users = users[, -c(2,4,6,8)] # skip columns
+colnames(users) = c('UserID', 'Gender', 'Age', 'Occupation', 'Zip-code')
+head(users, 5)
+```
+
+### Movies data:
+
+```{r}
+movies = readLines(paste0(myurl, 'movies.dat?raw=true'))
+movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
+movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
+movies = data.frame(movies, stringsAsFactors = FALSE)
+colnames(movies) = c('MovieID', 'Title', 'Genres')
+movies$MovieID = as.integer(movies$MovieID)
+
+# convert accented characters
+movies$Title[73]
+movies$Title = iconv(movies$Title, "latin1", "UTF-8")
+movies$Title[73]
+
+# extract year
+movies$Year = as.numeric(unlist(
+  lapply(movies$Title, function(x) substr(x, nchar(x)-4, nchar(x)-1))))
+head(movies, 5)
+```
+
+***
+# System I: Content-Based Recommendation System
+
+## 1. Recommend the top-five "highly-rated" movies in the selected genre:
+
+**Examine the data:**
+
+Number of moview in each rating category:
+```{r}
+# Count the number of movies in each rating category:
+ratings %>% group_by(Rating) %>% summarize(n=n())
+```
+
+Average number of time movie receives the rating:
+```{r}
+# Count the number of time movie receives the rating:
+rating_cnt <- ratings %>% group_by(MovieID) %>% summarize(n=n())
+head(rating_cnt)
+```
+The plot below shows distribution of number of movies ratings. On average movie received about `r mean(rating_cnt$n, na.rm=T)` users reviews.
+```{r}
+ggplot(rating_cnt, aes(x=n)) +
+    geom_histogram(colour="DodgerBlue", fill="white",bins=50) +
+    geom_vline(aes(xintercept=mean(n, na.rm=T)),  
+               color="orange", linetype="dashed", size=1)+
+  ggtitle("Distribution Movies Ratings") +
+  geom_text(aes(x=mean(n, na.rm=T), label=round(mean(n, na.rm=T)), y=300), colour="DimGrey", angle=90) +
+  xlab("Count") + ylab("Number of Review")
+```
+
+- **Create a table that summarizes all genres for each movie:**
+
+```{r}
+# Subset Genres column
+genres <- as.data.frame(movies$Genres, stringsAsFactors=FALSE)
+# Split text on pipe to get all genres for each movie
+tmp = as.data.frame(tstrsplit(genres[,1], '[|]',
+                              type.convert=TRUE),
+                    stringsAsFactors=FALSE)
+colnames(tmp) <- c(1:dim(tmp)[2])
+head(tmp)
+```
+- **Create the movie feature matrix with binary indicator for each genre:**
+
+```{r}
+genre_list = c("Action", "Adventure", "Animation", 
+               "Children's", "Comedy", "Crime",
+               "Documentary", "Drama", "Fantasy",
+               "Film-Noir", "Horror", "Musical", 
+               "Mystery", "Romance", "Sci-Fi", 
+               "Thriller", "War", "Western")
+
+genre_matrix = matrix(0, nrow(movies), length(genre_list))
+# Loop over all movies
+for(i in 1:nrow(tmp)){
+  genre_matrix[i,genre_list %in% tmp[i,]]=1
+}
+colnames(genre_matrix) = genre_list
+head(genre_matrix)
+```
+
+- **Create the user profile matrix:**
+
+Transform the rating dataset from a long format to a wide format. Here, we can see that UserID 8 has watched MovieID 1 & 4 and gave them 4 & 3 points. We can also say that he did not rated MovieID 2,3,5 & 6, therefore they have rating 0.
+```{r}
+ratings = ratings[, -c(4)]
+ratings_long <- dcast(ratings, MovieID~UserID, value.var = "Rating", na.rm=FALSE)
+# for (i in 1:ncol(ratings_long)){
+#   ratings_long[which(is.na(ratings_long[,i]) == TRUE),i] <- 0
+# }
+ratings_long <- ratings_long[,-1] #remove movieIds col. Rows are movieIds, cols are userIds
+# Remove movies with no reviews
+ratings_long <- ratings_long[rowSums(is.na(ratings_long)) != ncol(ratings_long), ]
+ratings_long[1:6, 1:9]
+```
+
+
+- **Recommend top-five highly-rated movies in the selected genre:**
+
+The methodology to find the top-five **"highly-rated"** movies. For each movie we calculate movie weighted rating score:
+
+Movie Weighted Rating $(MWR) = (\frac{v}{v + m}) * R + (\frac{m}{v + m})*C$
+
+Where:
+
+- R - average rating for the movie
+
+- v - count of reviews for the movie
+
+- m - minimum review needed to be considered for "highly-rated" category. Since on average movie receives 270 users reviews, we can consider only movies with 50 or more reviews. m = 50
+
+- C - constant that represent the average rating for the movie in this genre.
+
+
+```{r}
+# Select genre
+genre <- genre_list[18]
+genre
+# List of movies of this genre
+movie_list <- which(genre_matrix[,c(genre)] == 1)
+movies_options <- ratings_long[movie_list, ]
+
+m = 50
+# Average movie review
+R <- rowMeans(movies_options, na.rm = TRUE)
+# Number of reviews received
+v <- rowSums(!is.na(movies_options))
+# Average rating for the movie in this genre
+C <- mean(R, na.rm = TRUE)
+# Compute Movie Weighted Rating
+movies_options['MWR'] = (v / (v + m)) * R + (m / (m +v)) * C
+movies_options['indx'] <- movie_list
+movies_options['ave_rating'] <- R
+movies_options['n_reviews'] <- v
+
+```
+
+Recommend top-five "highly-rated" movies:
+```{r}
+# Select the top-five "highly-rated" movies in the specified genre
+table <- movies_options[movies_options$n_reviews >=50, c('indx','n_reviews','MWR')]
+rows <- table[which.maxn(table$MWR, n=5) , 'indx']
+# Recommend movies
+movies[rows,]
+```
+
+
+
+***
