@@ -1,7 +1,7 @@
 source("functions/system1.R")
 source("functions/system2.R")
 get_system_1_recommendations = function(movies, genre){
-  get_recommendation_by_genre(movies, genre)
+  get_recommendation_by_genre(genre)
 }
 
 
@@ -40,7 +40,7 @@ movies$image_url = sapply(movies$MovieID,
 
 shinyServer(function(input, output, session) {
   
-  # show the books to be rated
+  # show the movies to be rated
   output$ratings <- renderUI({
     num_rows <- 20
     num_movies <- 6 # movies per row
@@ -114,19 +114,20 @@ shinyServer(function(input, output, session) {
   
   # display the recommendations of genre (system I)
   output$results_genre <- renderUI({
-    num_rows <- 2
+    num_rows <- 1
     num_movies <- 5
     recom_result <- df_genre()
+    print(recom_result)
     
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
         box(width = 2, status = "success", solidHeader = TRUE, title = paste0("Rank ", (i - 1) * num_movies + j),
             
             div(style = "text-align:center", 
-                a(img(src = movies$image_url[recom_result$MovieID[(i - 1) * num_movies + j]], height = 150))
+                a(img(src = recom_result$image_url[(i - 1) * num_movies + j], height = 150))
             ),
             div(style="text-align:center; font-size: 100%", 
-                strong(movies$Title[recom_result$MovieID[(i - 1) * num_movies + j]])
+                strong(recom_result$Title[(i - 1) * num_movies + j])
             )
             
         )        
