@@ -11,8 +11,8 @@ library(proxy)
 library(doBy) # to get top-n elements
 
 myurl = "https://liangfgithub.github.io/MovieData/"
-# ratings_data_location = paste0(myurl, 'ratings.dat?raw=true')
-ratings_data_location ='./ratings.dat'
+ratings_data_location = paste0(myurl, 'ratings.dat?raw=true')
+# ratings_data_location ='./ratings.dat'
 ratings = read.csv(ratings_data_location, 
                    sep = ':',
                    colClasses = c('integer', 'NULL'), 
@@ -20,8 +20,8 @@ ratings = read.csv(ratings_data_location,
 colnames(ratings) = c('UserID', 'MovieID', 'Rating', 'Timestamp')
 
 
-# movies_data_location = paste0(myurl, 'movies.dat?raw=true')
-movies_data_location = './movies.dat'
+movies_data_location = paste0(myurl, 'movies.dat?raw=true')
+# movies_data_location = './movies.dat'
 movies = readLines(movies_data_location)
 movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
 movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
