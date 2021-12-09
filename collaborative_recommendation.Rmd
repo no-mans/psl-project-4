@@ -102,20 +102,22 @@ The `evaluationScheme()` function can split the data set into training and testi
 
 - **test** matrix contains about 20% rows of `rating` dataset
 
+
 The output of the evaluationScheme() function is a single R object containing both the training and testing subsets.
 
 ```{r}
 set.seed(9335)
-# split the data into the training and the test set:
-percent_train = 0.8
-items_to_keep = 15        # items to use for each user
-eval_sets <- evaluationScheme(ratingmat, method="split", train=percent_train, given=items_to_keep, goodRating=0)
+# Parameters:
+percent_train = 0.8 # split the data into the training and the test sets (80%/20%)
+items_to_keep = 15  # items to use for each user
+rating_threshold = 4 # threshold at which ratings are considered good for evaluation
+eval_sets <- evaluationScheme(ratingmat, method="split", train=percent_train, given=items_to_keep, goodRating=rating_threshold)
 eval_sets
 ```
 
 - **Build Recommender Model**
 
-Build Recommender Model using User-Based Collaborative Filtering using `recommenderlab` library. Set method equals to "UBCF", use Cosine Similarity and 30 Nearest Neighbors as parameters.
+Build Recommender Model using User-Based Collaborative Filtering using `recommenderlab` library. Set method equals to "UBCF", use Cosine Similarity, Z-score normalization and 30 Nearest Neighbors as parameters.
 ```{r}
 # Create Recommender Model using User-Based Collaborative Filtering
 UBCF_model <- Recommender(getData(eval_sets, "train"), "UBCF", 
@@ -128,15 +130,15 @@ To evaluate the model we use the `recommenderlab` package. We first use the `pre
 
 ```{r}
 items_to_recommend = 10
-eval_prediction = predict(object = UBCF_model,
+UBCF_eval_prediction = predict(object = UBCF_model,
                           newdata = getData(eval_sets, "known"),
                           n = items_to_recommend,
                           type = "ratings")
 # Get model performance
-eval_accuracy = calcPredictionAccuracy(x = eval_prediction,
+UBCF_eval_accuracy = calcPredictionAccuracy(x = UBCF_eval_prediction,
                                        data = getData(eval_sets, "unknown"),
                                        byUser = FALSE)
-eval_accuracy
+UBCF_eval_accuracy
 ```
 - **Get recommendations:**
 
@@ -154,6 +156,65 @@ for (i in c(1:items_to_recommend)){
 recom_result
 ```
 
+## 2. Item-based recommendation:
+
+Item-based recommendation is a form of collaborative filtering for recommender systems that uses the similarity between items which calculated using people's ratings of those items. 
+
+- **Build Recommender Model**
+
+Build Recommender Model using Item-Based Collaborative Filtering using `recommenderlab` library. Set method equals to "IBCF", use Cosine Similarity as parameters.
+```{r}
+# Create Recommender Model using Item-Based Collaborative Filtering
+IBCF_model <- Recommender(getData(eval_sets, "train"), "IBCF", 
+                           param=list(normalize = "Z-score",method="Cosine",k=30))
+```
+
+- **Evaluate your model:**
+
+To evaluate the model we use the `recommenderlab` package. We first use the `predict()` function to generate predictions for the known portion of the test data. Then, the `calcPredictAccuracy()` function to calculate the error between the predictions and the unknown portions of the test data.
+
+```{r}
+items_to_recommend = 10
+IBCF_eval_prediction = predict(object = IBCF_model,
+                          newdata = getData(eval_sets, "known"),
+                          n = items_to_recommend,
+                          type = "ratings")
+# Get model performance
+IBCF_eval_accuracy = calcPredictionAccuracy(x = IBCF_eval_prediction,
+                                       data = getData(eval_sets, "unknown"),
+                                       byUser = FALSE)
+IBCF_eval_accuracy
+```
+- **Get recommendations:**
+
+```{r}
+# Obtain top 10 recommendations for n user in dataset
+UserID = 15
+recom <- predict(IBCF_model, ratingmat[UserID], n=items_to_recommend) 
+recom_list <- as(recom, "list") #convert recommenderlab object to readable list
+ 
+# Obtain recommendations
+recom_result <- matrix(0,items_to_recommend)
+for (i in c(1:items_to_recommend)){
+ recom_result[i] <- movies[as.integer(recom_list[[1]][i]),2]
+}
+recom_result
+```
+
+## 3. Report User-based vs. Item-based accuracy:
+
+Both models use Cosine Similarity, Z-score normalization and 30 nearest neighbors or items as parameters.
+
+```{r}
+# Aggregate the performance statistics
+performance <- rbind(
+ UBCF_eval_accuracy,
+ IBCF_eval_accuracy
+)
+kable(performance)
+```
+
+User-based collaborative model (UBCF) outperforms Item-based collaborative model (IBCF). On the other hand, UBCF has greater computational cost and requires more resources. 
 
 ***
 
