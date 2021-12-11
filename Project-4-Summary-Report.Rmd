@@ -1,5 +1,5 @@
 ---
-title: "Project 2: Movie Recommendation"
+title: "Project 4: Movie Recommendation"
 author: 
   - Tatiana Sokolinski, tatiana9@illinois.edu
   - Noam Mansovsky, noamm2@illinois.edu
