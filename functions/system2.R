@@ -33,8 +33,9 @@ ratings = subset(ratings, select = -c(Timestamp) )
 
 
 # load the trained model
-UBCF_model <- readRDS("data/UBCF_recommender.rds")
-# IBCF_model <- readRDS("data/IBCF_recommender.rds")
+# model <- readRDS("data/UBCF_recommender.rds")
+model <- readRDS("data/IBCF_recommender.rds")
+
 
 NEW_USER_ID=6041 # we have 6040 users in the db
 
@@ -57,7 +58,7 @@ get_colab_recommendation = function(movies, user_ratings){
 
   my_user_ratings = ratingmat[NEW_USER_ID]
   
-  recom = predict(object = UBCF_model,
+  recom = predict(object = model,
                                  newdata = my_user_ratings,
                                  n = items_to_recommend,
                                  type = "topNList")
