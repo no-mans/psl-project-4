@@ -4,13 +4,11 @@
 library(dplyr)
 library(Matrix)
 library(recommenderlab)
-library(DT)
 library(data.table)
 library(reshape2)
-
 library(proxy)
-library(doBy) # to get top-n elements
-library(knitr)
+#library(doBy) # to get top-n elements
+
 
 
 
