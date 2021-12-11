@@ -102,7 +102,7 @@ shinyServer(function(input, output, session) {
       runjs(jsCode)
       
       selected_genre = input$genre_selection
-      print(selected_genre)
+      # print(selected_genre)
       
       get_system_1_recommendations(movies, selected_genre)
       
@@ -135,7 +135,7 @@ shinyServer(function(input, output, session) {
     num_rows <- 1
     num_movies <- 5
     recom_result <- df_genre()
-    print(recom_result)
+    # print(recom_result)
     
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
