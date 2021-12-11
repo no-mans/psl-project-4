@@ -1,0 +1,414 @@
+---
+title: "Project 2: Movie Recommendation"
+author: 
+  - Tatiana Sokolinski, tatiana9@illinois.edu
+  - Noam Mansovsky, noamm2@illinois.edu
+date: "12/11/2021"
+output:
+  html_document: 
+    theme: yeti
+    toc: yes
+urlcolor: cyan
+---
+***
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 4, width = 80, fig.align = "center")
+
+mypackages = c( "dplyr","ggplot2","recommenderlab","DT","data.table","reshape2","Matrix","proxy","doBy")   
+tmp = setdiff(mypackages, rownames(installed.packages())) 
+if (length(tmp) > 0) install.packages(tmp)
+
+library(dplyr)
+library(ggplot2)
+library(recommenderlab)
+library(DT)
+library(data.table)
+library(reshape2)
+library(Matrix)
+library(proxy)
+library(doBy) # to get top-n elements
+library(knitr)
+```
+
+
+## Read in Data
+
+### Ratings data:
+```{r}
+myurl = "https://liangfgithub.github.io/MovieData/"
+ratings = read.csv(paste0(myurl, 'ratings.dat?raw=true'), 
+                   sep = ':',
+                   colClasses = c('integer', 'NULL'), 
+                   header = FALSE)
+colnames(ratings) = c('UserID', 'MovieID', 'Rating', 'Timestamp')
+head(ratings, 5)
+```
+
+### User data:
+```{r}
+users = read.csv(paste0(myurl, 'users.dat?raw=true'),
+                 sep = ':', header = FALSE)
+users = users[, -c(2,4,6,8)] # skip columns
+colnames(users) = c('UserID', 'Gender', 'Age', 'Occupation', 'Zip-code')
+head(users, 5)
+```
+
+### Movies data:
+
+```{r}
+movies = readLines(paste0(myurl, 'movies.dat?raw=true'))
+movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
+movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
+movies = data.frame(movies, stringsAsFactors = FALSE)
+colnames(movies) = c('MovieID', 'Title', 'Genres')
+movies$MovieID = as.integer(movies$MovieID)
+
+# convert accented characters
+movies$Title[73]
+movies$Title = iconv(movies$Title, "latin1", "UTF-8")
+movies$Title[73]
+
+# extract year
+movies$Year = as.numeric(unlist(
+  lapply(movies$Title, function(x) substr(x, nchar(x)-4, nchar(x)-1))))
+head(movies, 5)
+```
+
+***
+# System I: Content-Based Recommendation System
+
+## 1. Recommend the top-five "highly-rated" movies in the selected genre:
+
+**Examine the data:**
+
+Number of moview in each rating category:
+```{r}
+# Count the number of movies in each rating category:
+ratings %>% group_by(Rating) %>% summarize(n=n())
+```
+
+Average number of time movie receives the rating:
+```{r}
+# Count the number of time movie receives the rating:
+rating_cnt <- ratings %>% group_by(MovieID) %>% summarize(n=n())
+head(rating_cnt)
+```
+The plot below shows distribution of number of movies ratings. On average movie received about `r mean(rating_cnt$n, na.rm=T)` users reviews.
+```{r}
+ggplot(rating_cnt, aes(x=n)) +
+    geom_histogram(colour="DodgerBlue", fill="white",bins=50) +
+    geom_vline(aes(xintercept=mean(n, na.rm=T)),  
+               color="orange", linetype="dashed", size=1)+
+  ggtitle("Distribution Movies Ratings") +
+  geom_text(aes(x=mean(n, na.rm=T), label=round(mean(n, na.rm=T)), y=300), colour="DimGrey", angle=90) +
+  xlab("Count") + ylab("Number of Review")
+```
+
+- **Create a table that summarizes all genres for each movie:**
+
+```{r}
+# Subset Genres column
+genres <- as.data.frame(movies$Genres, stringsAsFactors=FALSE)
+# Split text on pipe to get all genres for each movie
+tmp = as.data.frame(tstrsplit(genres[,1], '[|]',
+                              type.convert=TRUE),
+                    stringsAsFactors=FALSE)
+colnames(tmp) <- c(1:dim(tmp)[2])
+head(tmp)
+```
+- **Create the movie feature matrix with binary indicator for each genre:**
+
+```{r}
+genre_list = c("Action", "Adventure", "Animation", 
+               "Children's", "Comedy", "Crime",
+               "Documentary", "Drama", "Fantasy",
+               "Film-Noir", "Horror", "Musical", 
+               "Mystery", "Romance", "Sci-Fi", 
+               "Thriller", "War", "Western")
+
+genre_matrix = matrix(0, nrow(movies), length(genre_list))
+# Loop over all movies
+for(i in 1:nrow(tmp)){
+  genre_matrix[i,genre_list %in% tmp[i,]]=1
+}
+colnames(genre_matrix) = genre_list
+head(genre_matrix)
+```
+
+- **Create the user profile matrix:**
+
+Transform the rating dataset from a long format to a wide format. Here, we can see that UserID 8 has watched MovieID 1 & 4 and gave them 4 & 3 points. We can also say that he did not rated MovieID 2,3,5 & 6, therefore they have rating 0.
+```{r}
+ratings = ratings[, -c(4)]
+ratings_long <- dcast(ratings, MovieID~UserID, value.var = "Rating", na.rm=FALSE)
+# for (i in 1:ncol(ratings_long)){
+#   ratings_long[which(is.na(ratings_long[,i]) == TRUE),i] <- 0
+# }
+ratings_long <- ratings_long[,-1] #remove movieIds col. Rows are movieIds, cols are userIds
+# Remove movies with no reviews
+ratings_long <- ratings_long[rowSums(is.na(ratings_long)) != ncol(ratings_long), ]
+ratings_long[1:6, 1:9]
+```
+
+
+- **Recommend top-five highly-rated movies in the selected genre:**
+
+The methodology to find the top-five **"highly-rated"** movies. For each movie we calculate movie weighted rating score:
+
+Movie Weighted Rating $(MWR) = (\frac{v}{v + m}) * R + (\frac{m}{v + m})*C$
+
+Where:
+
+- R - average rating for the movie
+
+- v - count of reviews for the movie
+
+- m - minimum review needed to be considered for "highly-rated" category. Since on average movie receives 270 users reviews, we can consider only movies with 50 or more reviews. m = 50
+
+- C - constant that represent the average rating for the movie in this genre.
+
+
+```{r}
+# Select genre
+genre <- genre_list[18]
+genre
+# List of movies of this genre
+movie_list <- which(genre_matrix[,c(genre)] == 1)
+movies_options <- ratings_long[movie_list, ]
+
+m = 50
+# Average movie review
+R <- rowMeans(movies_options, na.rm = TRUE)
+# Number of reviews received
+v <- rowSums(!is.na(movies_options))
+# Average rating for the movie in this genre
+C <- mean(R, na.rm = TRUE)
+# Compute Movie Weighted Rating
+movies_options['MWR'] = (v / (v + m)) * R + (m / (m +v)) * C
+movies_options['indx'] <- movie_list
+movies_options['ave_rating'] <- R
+movies_options['n_reviews'] <- v
+
+```
+
+Recommend top-five "highly-rated" movies:
+```{r}
+# Select the top-five "highly-rated" movies in the specified genre
+table <- movies_options[movies_options$n_reviews >=50, c('indx','n_reviews','MWR')]
+rows <- table[which.maxn(table$MWR, n=5) , 'indx']
+# Recommend movies
+movies[rows,]
+```
+
+## 2. Recommend the top-five "most-popular" movies in the selected genre:
+
+- **Create the user profile matrix:**
+
+This time the user profile matrix uses a binary indicator "1" when a movie rating equals 4 or 5 and "0" when a movie rating equals 1,2 or 3.
+```{r}
+ratings_binary <- ratings
+ratings_binary$Rating[ratings_binary$Rating == 1 | ratings_binary$Rating == 2 | ratings_binary$Rating == 3 ] <- 0   
+ratings_binary$Rating[ratings_binary$Rating == 4 | ratings_binary$Rating == 5 ] <- 1 
+ratings_binary = ratings_binary[, -c(4)]
+head(ratings_binary)
+```
+Transform the binary rating dataset from a long format to a wide format:
+```{r}
+ratings_binary_long <- dcast(ratings_binary, MovieID~UserID, value.var = "Rating", na.rm=FALSE)
+ratings_binary_long = ratings_binary_long[,-1] #remove movieIds col. Rows are movieIds, cols are userIds
+head(ratings_binary_long[1:6,1:6])
+```
+
+- **Recommend top-five most-popular movies in the selected genre:**
+
+The methodology to find the top-five **"most-popular"** movies. For each movie we calculate movie popularity score:
+
+Movie Popularity Score $(MPS) = P + P * \frac{P}{N}$
+
+Where:
+
+- P - count of positive reviews (where user's review >= 4)
+
+- N - count of negative reviews (where user's review <= 3)
+
+
+```{r}
+# Select genre
+genre <- genre_list[18]
+genre
+# List of movies of this genre
+movie_list <- which(genre_matrix[,c(genre)] == 1)
+movies_options <- ratings_binary_long[movie_list, ]
+
+
+# Number of reviews received
+v <- rowSums(!is.na(movies_options)) 
+
+# Total positive and negative reviews
+positive_reviews <- rowSums(movies_options, na.rm = TRUE)
+negative_reviews <- v - positive_reviews
+
+movies_options['indx'] <- movie_list
+movies_options['n_reviews'] <- v
+movies_options['pos_reviews'] <- positive_reviews
+movies_options['neg_reviews'] <- negative_reviews
+movies_options['ratio'] <- positive_reviews / negative_reviews
+movies_options['MPS'] <- positive_reviews + positive_reviews * movies_options['ratio']
+data <- movies_options[, c('indx','n_reviews','pos_reviews','neg_reviews','ratio','MPS')]
+data <- data %>% mutate(MPS = coalesce(MPS, 0)) # fill na with zeros
+data <- data %>% mutate_if(is.numeric, function(x) ifelse(is.infinite(x), 0, x)) # fill na with zeros
+```
+
+Recommend top-five "most-popular" movies:
+```{r}
+# Select the top-five "most-popular" movies in the specified genre
+rows <- table[which.maxn(data$MPS, n=5) , 'indx']
+# Recommend movies
+movies[rows,]
+```
+
+
+***
+# System II: Collaborative Recommendation System
+
+## 1. User-based recommendation:
+
+User-Based Collaborative Filtering is an algorithm used to predict the items that a user might like on the basis of ratings given by the other users who have similar taste with that of the target user.
+
+- **Create the user profile matrix:**
+
+Create ratings matrix using MovieID, UserID and Ratings fields.
+```{r}
+# Create ratings matrix. Rows = UserID, Columns = MovieID
+ratingmat <- dcast(ratings, UserID~MovieID, value.var = "Rating", na.rm=FALSE)
+ratingmat <- as.matrix(ratingmat[,-1]) #remove userIds
+# Convert rating matrix into a recommenderlab sparse matrix
+ratingmat <- as(ratingmat, "realRatingMatrix")
+dim(ratingmat)
+```
+
+- **Train and test splits:**
+
+The `evaluationScheme()` function can split the data set into training and testing subsets:
+
+- **train** matrix contains about 80% rows of `rating` dataset
+
+- **test** matrix contains about 20% rows of `rating` dataset
+
+
+The output of the evaluationScheme() function is a single R object containing both the training and testing subsets.
+
+```{r}
+set.seed(9335)
+# Parameters:
+percent_train = 0.8 # split the data into the training and the test sets (80%/20%)
+items_to_keep = 15  # items to use for each user
+rating_threshold = 4 # threshold at which ratings are considered good for evaluation
+eval_sets <- evaluationScheme(ratingmat, method="split", train=percent_train, given=items_to_keep, goodRating=rating_threshold)
+eval_sets
+```
+
+- **Build Recommender Model**
+
+Build Recommender Model using User-Based Collaborative Filtering using `recommenderlab` library. Set method equals to "UBCF", use Cosine Similarity, Z-score normalization and 30 Nearest Neighbors as parameters.
+```{r}
+# Create Recommender Model using User-Based Collaborative Filtering
+UBCF_model <- Recommender(getData(eval_sets, "train"), "UBCF", 
+                           param=list(normalize = "Z-score",method="Cosine",nn=30))
+```
+
+- **Evaluate your model:**
+
+To evaluate the model we use the `recommenderlab` package. We first use the `predict()` function to generate predictions for the known portion of the test data. Then, the `calcPredictAccuracy()` function to calculate the error between the predictions and the unknown portions of the test data.
+
+```{r}
+items_to_recommend = 10
+UBCF_eval_prediction = predict(object = UBCF_model,
+                          newdata = getData(eval_sets, "known"),
+                          n = items_to_recommend,
+                          type = "ratings")
+# Get model performance
+UBCF_eval_accuracy = calcPredictionAccuracy(x = UBCF_eval_prediction,
+                                       data = getData(eval_sets, "unknown"),
+                                       byUser = FALSE)
+UBCF_eval_accuracy
+```
+- **Get recommendations:**
+
+```{r}
+# Obtain top 10 recommendations for n user in dataset
+UserID = 1
+recom <- predict(UBCF_model, ratingmat[UserID], n=items_to_recommend) 
+recom_list <- as(recom, "list") #convert recommenderlab object to readable list
+ 
+# Obtain recommendations
+recom_result <- matrix(0,items_to_recommend)
+for (i in c(1:items_to_recommend)){
+ recom_result[i] <- movies[as.integer(recom_list[[1]][i]),2]
+}
+recom_result
+```
+
+## 2. Item-based recommendation:
+
+Item-based recommendation is a form of collaborative filtering for recommender systems that uses the similarity between items which calculated using people's ratings of those items. 
+
+- **Build Recommender Model**
+
+Build Recommender Model using Item-Based Collaborative Filtering using `recommenderlab` library. Set method equals to "IBCF", use Cosine Similarity as parameters.
+```{r}
+# Create Recommender Model using Item-Based Collaborative Filtering
+IBCF_model <- Recommender(getData(eval_sets, "train"), "IBCF", 
+                           param=list(normalize = "Z-score",method="Cosine",k=30))
+```
+
+- **Evaluate your model:**
+
+To evaluate the model we use the `recommenderlab` package. We first use the `predict()` function to generate predictions for the known portion of the test data. Then, the `calcPredictAccuracy()` function to calculate the error between the predictions and the unknown portions of the test data.
+
+```{r}
+items_to_recommend = 10
+IBCF_eval_prediction = predict(object = IBCF_model,
+                          newdata = getData(eval_sets, "known"),
+                          n = items_to_recommend,
+                          type = "ratings")
+# Get model performance
+IBCF_eval_accuracy = calcPredictionAccuracy(x = IBCF_eval_prediction,
+                                       data = getData(eval_sets, "unknown"),
+                                       byUser = FALSE)
+IBCF_eval_accuracy
+```
+- **Get recommendations:**
+
+```{r}
+# Obtain top 10 recommendations for n user in dataset
+UserID = 15
+recom <- predict(IBCF_model, ratingmat[UserID], n=items_to_recommend) 
+recom_list <- as(recom, "list") #convert recommenderlab object to readable list
+ 
+# Obtain recommendations
+recom_result <- matrix(0,items_to_recommend)
+for (i in c(1:items_to_recommend)){
+ recom_result[i] <- movies[as.integer(recom_list[[1]][i]),2]
+}
+recom_result
+```
+
+## 3. Report User-based vs. Item-based accuracy:
+
+Both models use Cosine Similarity, Z-score normalization and 30 nearest neighbors or items as parameters.
+
+```{r}
+# Aggregate the performance statistics
+performance <- rbind(
+ UBCF_eval_accuracy,
+ IBCF_eval_accuracy
+)
+kable(performance)
+```
+
+User-based collaborative model (UBCF) outperforms Item-based collaborative model (IBCF). On the other hand, UBCF has greater computational cost and requires more resources. 
+
+
+***
