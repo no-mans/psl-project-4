@@ -183,6 +183,7 @@ pre code {
 <li><a href="#system-i-content-based-recommendation-system">System I: Content-Based Recommendation System</a>
 <ul>
 <li><a href="#recommend-the-top-five-highly-rated-movies-in-the-selected-genre">1. Recommend the top-five “highly-rated” movies in the selected genre:</a></li>
+<li><a href="#recommend-the-top-five-most-popular-movies-in-the-selected-genre">2. Recommend the top-five “most-popular” movies in the selected genre:</a></li>
 </ul></li>
 </ul>
 </div>
@@ -406,6 +407,82 @@ movies[rows,]</code></pre>
 ## 484      487               Lightning Jack (1994) Comedy|Western 1994
 ## 3576    3644                 Dark Command (1940)        Western 1940
 ## 1247    1266                   Unforgiven (1992)        Western 1992</code></pre>
+</div>
+<div id="recommend-the-top-five-most-popular-movies-in-the-selected-genre" class="section level2">
+<h2>2. Recommend the top-five “most-popular” movies in the selected genre:</h2>
+<ul>
+<li><strong>Create the user profile matrix:</strong></li>
+</ul>
+<p>This time the user profile matrix uses a binary indicator “1” when a movie rating equals 4 or 5 and “0” when a movie rating equals 1,2 or 3.</p>
+<pre class="r"><code>ratings_binary &lt;- ratings
+ratings_binary$Rating[ratings_binary$Rating == 1 | ratings_binary$Rating == 2 | ratings_binary$Rating == 3 ] &lt;- 0   
+ratings_binary$Rating[ratings_binary$Rating == 4 | ratings_binary$Rating == 5 ] &lt;- 1 
+ratings_binary = ratings_binary[, -c(4)]
+head(ratings_binary)</code></pre>
+<pre><code>##   UserID MovieID Rating
+## 1      1    1193      1
+## 2      1     661      0
+## 3      1     914      0
+## 4      1    3408      1
+## 5      1    2355      1
+## 6      1    1197      0</code></pre>
+<p>Transform the binary rating dataset from a long format to a wide format:</p>
+<pre class="r"><code>ratings_binary_long &lt;- dcast(ratings_binary, MovieID~UserID, value.var = &quot;Rating&quot;, na.rm=FALSE)
+ratings_binary_long = ratings_binary_long[,-1] #remove movieIds col. Rows are movieIds, cols are userIds
+head(ratings_binary_long[1:6,1:6])</code></pre>
+<pre><code>##    1  2  3  4  5  6
+## 1  1 NA NA NA NA  1
+## 2 NA NA NA NA NA NA
+## 3 NA NA NA NA NA NA
+## 4 NA NA NA NA NA NA
+## 5 NA NA NA NA NA NA
+## 6 NA NA NA NA  0 NA</code></pre>
+<ul>
+<li><strong>Recommend top-five most-popular movies in the selected genre:</strong></li>
+</ul>
+<p>The methodology to find the top-five <strong>“most-popular”</strong> movies. For each movie we calculate movie popularity score:</p>
+<p>Movie Popularity Score <span class="math inline">\((MPS) = P + P * \frac{P}{N}\)</span></p>
+<p>Where:</p>
+<ul>
+<li><p>P - sum of positive reviews (where user’s review &gt;= 4)</p></li>
+<li><p>N - sum of negative reviews (where user’s review &lt;= 3)</p></li>
+</ul>
+<pre class="r"><code># Select genre
+genre &lt;- genre_list[18]
+genre</code></pre>
+<pre><code>## [1] &quot;Western&quot;</code></pre>
+<pre class="r"><code># List of movies of this genre
+movie_list &lt;- which(genre_matrix[,c(genre)] == 1)
+movies_options &lt;- ratings_binary_long[movie_list, ]
+
+
+# Number of reviews received
+v &lt;- rowSums(!is.na(movies_options)) 
+
+# Total positive and negative reviews
+positive_reviews &lt;- rowSums(movies_options, na.rm = TRUE)
+negative_reviews &lt;- v - positive_reviews
+
+movies_options[&#39;indx&#39;] &lt;- movie_list
+movies_options[&#39;n_reviews&#39;] &lt;- v
+movies_options[&#39;pos_reviews&#39;] &lt;- positive_reviews
+movies_options[&#39;neg_reviews&#39;] &lt;- negative_reviews
+movies_options[&#39;ratio&#39;] &lt;- positive_reviews / negative_reviews
+movies_options[&#39;MPS&#39;] &lt;- positive_reviews + positive_reviews * movies_options[&#39;ratio&#39;]
+data &lt;- movies_options[, c(&#39;indx&#39;,&#39;n_reviews&#39;,&#39;pos_reviews&#39;,&#39;neg_reviews&#39;,&#39;ratio&#39;,&#39;MPS&#39;)]
+data &lt;- data %&gt;% mutate(MPS = coalesce(MPS, 0)) # fill na with zeros
+data &lt;- data %&gt;% mutate_if(is.numeric, function(x) ifelse(is.infinite(x), 0, x)) # fill na with zeros</code></pre>
+<p>Recommend top-five “most-popular” movies:</p>
+<pre class="r"><code># Select the top-five &quot;most-popular&quot; movies in the specified genre
+rows &lt;- table[which.maxn(data$MPS, n=5) , &#39;indx&#39;]
+# Recommend movies
+movies[rows,]</code></pre>
+<pre><code>##      MovieID                         Title         Genres Year
+## 953      964   Angel and the Badman (1947)        Western 1947
+## 2333    2401             Pale Rider (1985)        Western 1985
+## 1987    2055 Hot Lead and Cold Feet (1978) Comedy|Western 1978
+## 3614    3682           Magnum Force (1973)        Western 1973
+## 2410    2478          Three Amigos! (1986) Comedy|Western 1986</code></pre>
 <hr />
 </div>
 </div>
