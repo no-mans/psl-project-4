@@ -1,7 +1,6 @@
 # system1
 
 library(dplyr)
-library(ggplot2)
 library(recommenderlab)
 library(DT)
 library(data.table)
