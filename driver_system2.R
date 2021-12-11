@@ -3,7 +3,7 @@ source("functions/system2.R")
 load_movies = function(){
   myurl = "https://liangfgithub.github.io/MovieData/"
   # movies_data_location = paste0(myurl, 'movies.dat?raw=true')
-  movies_data_location = 'movies.dat'
+  movies_data_location = 'data/movies.dat'
   movies = readLines(movies_data_location)
   movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
   movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
@@ -20,7 +20,7 @@ generate_user_ratings = function() {
   # user_ratings = c(3, 4, 1, 5, 1)
   
 
-  user_movies = c(1, 4, 5, 5, NA) # for some reason the UI adds a row with NA movie id.
+  user_movies = c(1, 4, 5, 16, NA) # for some reason the UI adds a row with NA movie id.
   user_ratings = c(3, 6, 1, 4, 1)
 
     dat = data.table(

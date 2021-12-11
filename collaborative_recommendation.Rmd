@@ -131,8 +131,8 @@ UBCF_model <- Recommender(getData(eval_sets, "train"), "UBCF",
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 # Save the model
-saveRDS(UBCF_model, file = "UBCF_recommender.rds")
-# UBCF_model <- readRDS("UBCF_recommender.rds")
+saveRDS(UBCF_model, file = "data/UBCF_recommender.rds")
+# UBCF_model <- readRDS("data/UBCF_recommender.rds")
 ```
 
 - **Evaluate your model:**
@@ -167,7 +167,6 @@ recom <- predict(UBCF_model, ratingmat[UserID], n=items_to_recommend)
 recom_list <- as(recom, "list") #convert recommenderlab object to readable list
 
 # Obtain recommendations
-recom_result <- matrix(0,items_to_recommend)
 for (i in c(1:items_to_recommend)){
  recom_result[i] <- movies[as.integer(recom_list[[1]][i]),2]
 }
@@ -189,8 +188,8 @@ IBCF_model <- Recommender(getData(eval_sets, "train"), "IBCF",
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 # Save the model
-saveRDS(IBCF_model, file = "IBCF_recommender.rds")
-# UBCF_model <- readRDS("IBCF_recommender.rds")
+saveRDS(IBCF_model, file = "data/IBCF_recommender.rds")
+# UBCF_model <- readRDS("data/IBCF_recommender.rds")
 ```
 
 - **Evaluate your model:**

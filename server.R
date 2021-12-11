@@ -41,7 +41,7 @@ get_user_ratings = function(value_list) {
 # read in data
 myurl = "https://liangfgithub.github.io/MovieData/"
 # movies_data_location = paste0(myurl, 'movies.dat?raw=true')
-movies_data_location = 'movies.dat'
+movies_data_location = 'data/movies.dat'
 movies = readLines(movies_data_location)
 movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
 movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)

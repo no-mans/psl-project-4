@@ -92,15 +92,9 @@ get_recommendation_by_genre = function(genre){
   rows <- table[which.maxn(table$MWR, n=5) , 'indx']
   # Recommend movies
   selected_movies = movies[rows,]
-  print(selected_movies)
+  # print(selected_movies)
   
   
-  # user_results = (1:10)/10
-  # user_predicted_ids = 1:10
   selected_movies$Rank = 1:5
   selected_movies
-  # data.table(Rank = 1:5,
-  #            MovieID = movies$MovieID[user_predicted_ids],
-  #            Title = movies$Title[user_predicted_ids],
-  #            Predicted_rating =  user_results)
 }
