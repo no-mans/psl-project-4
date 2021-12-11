@@ -12,19 +12,37 @@ get_system_2_recommendations = function(movies, user_ratings){
 
 
 get_user_ratings = function(value_list) {
-  print(value_list)
+  # print("value_list:")
+  # print(head(value_list))
   dat = data.table(MovieID = sapply(strsplit(names(value_list), "_"), 
                                     function(x) ifelse(length(x) > 1, x[[2]], NA)),
                    Rating = unlist(as.character(value_list)))
   dat = dat[!is.null(Rating) & !is.na(MovieID)]
   dat[Rating == " ", Rating := 0]
   dat[, ':=' (MovieID = as.numeric(MovieID), Rating = as.numeric(Rating))]
+  dat = na.omit(dat)
+  # print("value_list:")
+  # print(dat[order(MovieID),])
   dat = dat[Rating > 0]
+  # dat[order(MovieID), ]$Rating
+  
+  
+  # user_movies = c(1, 4, 5, 5, NA)
+  # user_ratings = c(3, 6, 1, 4, 1)
+  # dat = data.table(MovieID = user_movies,
+  #                  Rating = user_ratings)
+  dat = na.omit(dat)
+  
+  
+  dat
+  
 }
 
 # read in data
 myurl = "https://liangfgithub.github.io/MovieData/"
-movies = readLines(paste0(myurl, 'movies.dat?raw=true'))
+# movies_data_location = paste0(myurl, 'movies.dat?raw=true')
+movies_data_location = 'movies.dat'
+movies = readLines(movies_data_location)
 movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
 movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
 movies = data.frame(movies, stringsAsFactors = FALSE)
@@ -148,10 +166,10 @@ shinyServer(function(input, output, session) {
         box(width = 2, status = "success", solidHeader = TRUE, title = paste0("Rank ", (i - 1) * num_movies + j),
             
             div(style = "text-align:center", 
-                a(img(src = movies$image_url[recom_result$MovieID[(i - 1) * num_movies + j]], height = 150))
+                a(img(src = recom_result$image_url[(i - 1) * num_movies + j], height = 150))
             ),
             div(style="text-align:center; font-size: 100%", 
-                strong(movies$Title[recom_result$MovieID[(i - 1) * num_movies + j]])
+                strong(recom_result$Title[(i - 1) * num_movies + j])
             )
             
         )        
