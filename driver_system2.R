@@ -23,7 +23,11 @@ generate_user_ratings = function() {
   user_movies = c(1, 4, 5, 16, NA) # for some reason the UI adds a row with NA movie id.
   user_ratings = c(3, 6, 1, 4, 1)
 
-    dat = data.table(
+  # user_movies = c(1, 2, NA) # for some reason the UI adds a row with NA movie id.
+  # user_ratings = c(5, 5, 1)
+  # 
+  
+  dat = data.table(
           MovieID = user_movies,
           Rating = user_ratings)
   dat = na.omit(dat)

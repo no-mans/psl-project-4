@@ -44,37 +44,49 @@ get_colab_recommendation = function(movies, user_ratings){
   
   # print("input")
   # print(user_ratings)
-  user_ratings$UserID=rep(NEW_USER_ID, nrow(user_ratings))
 
+  # user_ratings$UserID=rep(NEW_USER_ID, nrow(user_ratings))
   
-  newratings = rbind(ratings, user_ratings)
-  print(tail(newratings))
   
-  ratingmat <- dcast(newratings, UserID~MovieID, value.var = "Rating", na.rm=FALSE)
-
-  ratingmat <- as.matrix(ratingmat[,-1]) #remove userIds
+  # newratings = rbind(ratings, user_ratings)
+  # print(tail(newratings))
+  # 
+  # ratingmat <- dcast(newratings, UserID~MovieID, value.var = "Rating", na.rm=FALSE)
+  # 
+  # ratingmat <- as.matrix(ratingmat[,-1]) #remove userIds
+  
+  new_user_id = 1 # because we are constructing a matrix just for him
+  ratingsmat_newuser = matrix(nrow = 1, ncol = 3952)
+  for (ix in 1:nrow(user_ratings)){
+    row = as.list(user_ratings[ix, ])
+    # print("row")
+    # print(row)
+    ratingsmat_newuser[new_user_id, row$MovieID] = row$Rating
+  }
+  
   # Convert rating matrix into a recommenderlab sparse matrix
-  ratingmat <- as(ratingmat, "realRatingMatrix")
+  ratingsmat_newuser <- as(ratingsmat_newuser, "realRatingMatrix")
 
-  my_user_ratings = ratingmat[NEW_USER_ID]
+  my_user_ratings = ratingsmat_newuser[new_user_id]
   
   recom = predict(object = model,
                                  newdata = my_user_ratings,
                                  n = items_to_recommend,
                                  type = "topNList")
   recom_list <- as(recom, "list")
+  recom_list = as.integer(recom_list[[1]])
+  if (length(recom_list) < 1){
+    recom_list = user_ratings$MovieID
+  }
   # print("recom_list")
-  # print(as.integer(recom_list[[1]])) # [1:10]
+  # print(recom_list) # [1:10]
   
-  dt_recoms = movies[as.integer(recom_list[[1]]),]
+  dt_recoms = movies[recom_list,]
   # print("Movies")
   # print(dt_recoms)
-  
 
-  
-  
-  dt_recoms$Rank = 1:items_to_recommend
-  dt_recoms$Predicted_rating = 1:items_to_recommend
+  dt_recoms$Rank = 1:nrow(dt_recoms)
+  dt_recoms$Predicted_rating = 1:nrow(dt_recoms)
   
   # print("Returning recoms:")
   # print(dt_recoms)
