@@ -1,0 +1,14 @@
+name: psl-project-4
+title: psl-project-4
+username:
+account: no-man
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5311325
+bundleId: 5360450
+url: https://no-man.shinyapps.io/psl-project-4/
+when: 1639255810.18747
+lastSyncTime: 1639255810.18748
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|collaborative_recommendation.html|collaborative_recommendation.Rmd|content_based_recommendation.html|content_based_recommendation.Rmd|eda.Rmd|ml-1m/movies.dat|ml-1m/ratings.dat|ml-1m/README|ml-1m/users.dat|README.md

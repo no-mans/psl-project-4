@@ -69,10 +69,8 @@ shinyUI(
           
           dashboardSidebar(
             sidebarMenu(
-              menuItem("System I - Recommendation by Genre", tabName = "system1", icon = icon("th")),
-              menuItem("System II - Collaborative Recommendation", tabName = "system2", icon = icon("th"))
-              
-              
+              menuItem("System II - Collaborative Recommendation", tabName = "system2", icon = icon("th")),
+              menuItem("System I - Recommendation by Genre", tabName = "system1", icon = icon("th"))
             )
           ),
 

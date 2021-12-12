@@ -183,6 +183,8 @@ pre code {
 <li><a href="#system-ii-collaborative-recommendation-system">System II: Collaborative Recommendation System</a>
 <ul>
 <li><a href="#user-based-recommendation">1. User-based recommendation:</a></li>
+<li><a href="#item-based-recommendation">2. Item-based recommendation:</a></li>
+<li><a href="#report-user-based-vs.-item-based-accuracy">3. Report User-based vs. Item-based accuracy:</a></li>
 </ul></li>
 </ul>
 </div>
@@ -272,22 +274,24 @@ dim(ratingmat)</code></pre>
 <li><p><strong>train</strong> matrix contains about 80% rows of <code>rating</code> dataset</p></li>
 <li><p><strong>test</strong> matrix contains about 20% rows of <code>rating</code> dataset</p></li>
 </ul>
+<p>)</p>
 <p>The output of the evaluationScheme() function is a single R object containing both the training and testing subsets.</p>
 <pre class="r"><code>set.seed(9335)
-# split the data into the training and the test set:
-percent_train = 0.8
-items_to_keep = 15        # items to use for each user
-eval_sets &lt;- evaluationScheme(ratingmat, method=&quot;split&quot;, train=percent_train, given=items_to_keep, goodRating=0)
+# Parameters:
+percent_train = 0.8 # split the data into the training and the test se
+items_to_keep = 15  # items to use for each user
+rating_threshold = 4 # threshold at which ratings are considered good for evaluation
+eval_sets &lt;- evaluationScheme(ratingmat, method=&quot;split&quot;, train=percent_train, given=items_to_keep, goodRating=rating_threshold)
 eval_sets</code></pre>
 <pre><code>## Evaluation scheme with 15 items given
 ## Method: &#39;split&#39; with 1 run(s).
 ## Training set proportion: 0.800
-## Good ratings: &gt;=0.000000
+## Good ratings: &gt;=4.000000
 ## Data set: 6040 x 3706 rating matrix of class &#39;realRatingMatrix&#39; with 1000209 ratings.</code></pre>
 <ul>
 <li><strong>Build Recommender Model</strong></li>
 </ul>
-<p>Build Recommender Model using User-Based Collaborative Filtering using <code>recommenderlab</code> library. Set method equals to “UBCF”, use Cosine Similarity and 30 Nearest Neighbors as parameters.</p>
+<p>Build Recommender Model using User-Based Collaborative Filtering using <code>recommenderlab</code> library. Set method equals to “UBCF”, use Cosine Similarity, Z-score normalization and 30 Nearest Neighbors as parameters.</p>
 <pre class="r"><code># Create Recommender Model using User-Based Collaborative Filtering
 UBCF_model &lt;- Recommender(getData(eval_sets, &quot;train&quot;), &quot;UBCF&quot;, 
                            param=list(normalize = &quot;Z-score&quot;,method=&quot;Cosine&quot;,nn=30))</code></pre>
@@ -296,15 +300,15 @@ UBCF_model &lt;- Recommender(getData(eval_sets, &quot;train&quot;), &quot;UBCF&q
 </ul>
 <p>To evaluate the model we use the <code>recommenderlab</code> package. We first use the <code>predict()</code> function to generate predictions for the known portion of the test data. Then, the <code>calcPredictAccuracy()</code> function to calculate the error between the predictions and the unknown portions of the test data.</p>
 <pre class="r"><code>items_to_recommend = 10
-eval_prediction = predict(object = UBCF_model,
+UBCF_eval_prediction = predict(object = UBCF_model,
                           newdata = getData(eval_sets, &quot;known&quot;),
                           n = items_to_recommend,
                           type = &quot;ratings&quot;)
 # Get model performance
-eval_accuracy = calcPredictionAccuracy(x = eval_prediction,
+UBCF_eval_accuracy = calcPredictionAccuracy(x = UBCF_eval_prediction,
                                        data = getData(eval_sets, &quot;unknown&quot;),
                                        byUser = FALSE)
-eval_accuracy</code></pre>
+UBCF_eval_accuracy</code></pre>
 <pre><code>##   RMSE    MSE    MAE 
 ## 1.1475 1.3167 0.8853</code></pre>
 <ul>
@@ -332,6 +336,93 @@ recom_result</code></pre>
 ##  [8,] &quot;Tommy Boy (1995)&quot;                  
 ##  [9,] &quot;Short Cuts (1993)&quot;                 
 ## [10,] &quot;Tin Cup (1996)&quot;</code></pre>
+</div>
+<div id="item-based-recommendation" class="section level2">
+<h2>2. Item-based recommendation:</h2>
+<p>Item-based recommendation is a form of collaborative filtering for recommender systems that uses the similarity between items which calculated using people’s ratings of those items.</p>
+<ul>
+<li><strong>Build Recommender Model</strong></li>
+</ul>
+<p>Build Recommender Model using Item-Based Collaborative Filtering using <code>recommenderlab</code> library. Set method equals to “IBCF”, use Cosine Similarity as parameters.</p>
+<pre class="r"><code># Create Recommender Model using Item-Based Collaborative Filtering
+IBCF_model &lt;- Recommender(getData(eval_sets, &quot;train&quot;), &quot;IBCF&quot;, 
+                           param=list(normalize = &quot;Z-score&quot;,method=&quot;Cosine&quot;,k=30))</code></pre>
+<ul>
+<li><strong>Evaluate your model:</strong></li>
+</ul>
+<p>To evaluate the model we use the <code>recommenderlab</code> package. We first use the <code>predict()</code> function to generate predictions for the known portion of the test data. Then, the <code>calcPredictAccuracy()</code> function to calculate the error between the predictions and the unknown portions of the test data.</p>
+<pre class="r"><code>items_to_recommend = 10
+IBCF_eval_prediction = predict(object = IBCF_model,
+                          newdata = getData(eval_sets, &quot;known&quot;),
+                          n = items_to_recommend,
+                          type = &quot;ratings&quot;)
+# Get model performance
+IBCF_eval_accuracy = calcPredictionAccuracy(x = IBCF_eval_prediction,
+                                       data = getData(eval_sets, &quot;unknown&quot;),
+                                       byUser = FALSE)
+IBCF_eval_accuracy</code></pre>
+<pre><code>##  RMSE   MSE   MAE 
+## 1.538 2.365 1.136</code></pre>
+<ul>
+<li><strong>Get recommendations:</strong></li>
+</ul>
+<pre class="r"><code># Obtain top 10 recommendations for n user in dataset
+UserID = 15
+recom &lt;- predict(IBCF_model, ratingmat[UserID], n=items_to_recommend) 
+recom_list &lt;- as(recom, &quot;list&quot;) #convert recommenderlab object to readable list
+ 
+# Obtain recommendations
+recom_result &lt;- matrix(0,items_to_recommend)
+for (i in c(1:items_to_recommend)){
+ recom_result[i] &lt;- movies[as.integer(recom_list[[1]][i]),2]
+}
+recom_result</code></pre>
+<pre><code>##       [,1]                        
+##  [1,] &quot;August (1996)&quot;             
+##  [2,] &quot;Keys to Tulsa (1997)&quot;      
+##  [3,] &quot;My Cousin Vinny (1992)&quot;    
+##  [4,] &quot;My Best Girl (1927)&quot;       
+##  [5,] &quot;Who&#39;s That Girl? (1987)&quot;   
+##  [6,] &quot;Grumpy Old Men (1993)&quot;     
+##  [7,] &quot;Groove (2000)&quot;             
+##  [8,] &quot;Silent Fall (1994)&quot;        
+##  [9,] &quot;Little Rascals, The (1994)&quot;
+## [10,] &quot;Lone Star (1996)&quot;</code></pre>
+</div>
+<div id="report-user-based-vs.-item-based-accuracy" class="section level2">
+<h2>3. Report User-based vs. Item-based accuracy:</h2>
+<p>Both models use Cosine Similarity, Z-score normalization and 30 nearest neighbors or items as parameters.</p>
+<pre class="r"><code># Aggregate the performance statistics
+performance &lt;- rbind(
+ UBCF_eval_accuracy,
+ IBCF_eval_accuracy
+)
+kable(performance)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">RMSE</th>
+<th align="right">MSE</th>
+<th align="right">MAE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">UBCF_eval_accuracy</td>
+<td align="right">1.147</td>
+<td align="right">1.317</td>
+<td align="right">0.8853</td>
+</tr>
+<tr class="even">
+<td align="left">IBCF_eval_accuracy</td>
+<td align="right">1.538</td>
+<td align="right">2.365</td>
+<td align="right">1.1363</td>
+</tr>
+</tbody>
+</table>
+<p>User-based collaborative model (UBCF) outperforms Item-based collaborative model (IBCF). On the other hand, UBCF has greater computational cost and requires more resources.</p>
 <hr />
 </div>
 </div>
