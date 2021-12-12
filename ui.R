@@ -69,19 +69,20 @@ shinyUI(
           
           dashboardSidebar(
             sidebarMenu(
-              menuItem("System II - Collaborative Recommendation", tabName = "system2", icon = icon("th")),
-              menuItem("System I - Recommendation by Genre", tabName = "system1", icon = icon("th"))
+              menuItem("System I - Recommendation by Genre", tabName = "system1", icon = icon("th")),
+              menuItem("System II - Collaborative Recommendation", tabName = "system2", icon = icon("th"))
+              
             )
           ),
 
           dashboardBody(includeCSS("css/movies.css"),
                         tabItems(
                           # First tab content
-                          system_2_tab
+                          system_1_tab
                           ,
                           
                           # Second tab content
-                          system_1_tab
+                          system_2_tab
                         )
               
           )
