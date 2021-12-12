@@ -40,7 +40,7 @@ system_1_tab <- tabItem(tabName = "system1",
 
 system_2_tab <- tabItem(tabName = "system2",
                        fluidRow(
-                         box(width = 12, title = "Step 1: Rate as many movies as possible", status = "info", solidHeader = TRUE, collapsible = TRUE,
+                         box(width = 12, title = "Step 1: Here are some movies we randomly selected. Rate as many movies as possible in order to get a good recommendation.", status = "info", solidHeader = TRUE, collapsible = TRUE,
                              div(class = "rateitems",
                                  uiOutput('ratings')
                              )
