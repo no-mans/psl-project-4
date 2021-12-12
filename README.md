@@ -2,6 +2,11 @@
 
 Webapp code is based on https://github.com/pspachtholz/BookRecommender
 
+The app is deployed in shinyapps.io, and you can visit it at https://no-man.shinyapps.io/psl-project-4/
+
+
+
+## Using the App Locally
 ### installation
 
 ```r
@@ -14,7 +19,9 @@ install.packages("shinyjs")
 
 ### Run the APP
 
-open either `server.R` ro `ui.R` and press `Run App`
+In RStudio, open either `server.R` ro `ui.R` and press `Run App`
+
+
 
 ### Develop / Invoke the models without the app
 

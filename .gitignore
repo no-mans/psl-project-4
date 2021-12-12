@@ -6,9 +6,8 @@
 
 renv/
 renv*
-*.dat
 .idea/
 *.csv
 
 ml-1m/**
-
+readme.html

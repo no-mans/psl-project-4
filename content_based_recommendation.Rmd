@@ -200,6 +200,73 @@ rows <- table[which.maxn(table$MWR, n=5) , 'indx']
 movies[rows,]
 ```
 
+## 2. Recommend the top-five "most-popular" movies in the selected genre:
+
+- **Create the user profile matrix:**
+
+This time the user profile matrix uses a binary indicator "1" when a movie rating equals 4 or 5 and "0" when a movie rating equals 1,2 or 3.
+```{r}
+ratings_binary <- ratings
+ratings_binary$Rating[ratings_binary$Rating == 1 | ratings_binary$Rating == 2 | ratings_binary$Rating == 3 ] <- 0   
+ratings_binary$Rating[ratings_binary$Rating == 4 | ratings_binary$Rating == 5 ] <- 1 
+ratings_binary = ratings_binary[, -c(4)]
+head(ratings_binary)
+```
+Transform the binary rating dataset from a long format to a wide format:
+```{r}
+ratings_binary_long <- dcast(ratings_binary, MovieID~UserID, value.var = "Rating", na.rm=FALSE)
+ratings_binary_long = ratings_binary_long[,-1] #remove movieIds col. Rows are movieIds, cols are userIds
+head(ratings_binary_long[1:6,1:6])
+```
+
+- **Recommend top-five most-popular movies in the selected genre:**
+
+The methodology to find the top-five **"most-popular"** movies. For each movie we calculate movie popularity score:
+
+Movie Popularity Score $(MPS) = P + P * \frac{P}{N}$
+
+Where:
+
+- P - sum of positive reviews (where user's review >= 4)
+
+- N - sum of negative reviews (where user's review <= 3)
+
+
+```{r}
+# Select genre
+genre <- genre_list[18]
+genre
+# List of movies of this genre
+movie_list <- which(genre_matrix[,c(genre)] == 1)
+movies_options <- ratings_binary_long[movie_list, ]
+
+
+# Number of reviews received
+v <- rowSums(!is.na(movies_options)) 
+
+# Total positive and negative reviews
+positive_reviews <- rowSums(movies_options, na.rm = TRUE)
+negative_reviews <- v - positive_reviews
+
+movies_options['indx'] <- movie_list
+movies_options['n_reviews'] <- v
+movies_options['pos_reviews'] <- positive_reviews
+movies_options['neg_reviews'] <- negative_reviews
+movies_options['ratio'] <- positive_reviews / negative_reviews
+movies_options['MPS'] <- positive_reviews + positive_reviews * movies_options['ratio']
+data <- movies_options[, c('indx','n_reviews','pos_reviews','neg_reviews','ratio','MPS')]
+data <- data %>% mutate(MPS = coalesce(MPS, 0)) # fill na with zeros
+data <- data %>% mutate_if(is.numeric, function(x) ifelse(is.infinite(x), 0, x)) # fill na with zeros
+```
+
+Recommend top-five "most-popular" movies:
+```{r}
+# Select the top-five "most-popular" movies in the specified genre
+rows <- table[which.maxn(data$MPS, n=5) , 'indx']
+# Recommend movies
+movies[rows,]
+```
+
 
 
 ***
