@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 1, digits = 4, width = 80, fig.align = "center")
 
 mypackages = c( "dplyr","ggplot2","recommenderlab","DT","data.table","reshape2","Matrix","proxy","doBy")   
+
 tmp = setdiff(mypackages, rownames(installed.packages())) 
 if (length(tmp) > 0) install.packages(tmp)
 
@@ -281,8 +282,18 @@ User-Based Collaborative Filtering is an algorithm used to predict the items tha
 Create ratings matrix using MovieID, UserID and Ratings fields.
 ```{r}
 # Create ratings matrix. Rows = UserID, Columns = MovieID
-ratingmat <- dcast(ratings, UserID~MovieID, value.var = "Rating", na.rm=FALSE)
-ratingmat <- as.matrix(ratingmat[,-1]) #remove userIds
+ratingmat_raw = matrix(nrow = 6040, ncol = 3952)
+for (ix in 1:nrow(ratings)){
+  row = as.list(ratings[ix, ][1:3])
+  ratingmat_raw[row$UserID, row$MovieID] = row$Rating
+}
+```
+
+
+```{r}
+ratingmat <- as.matrix(ratingmat_raw, dimnames = c("UserID","MovieID"))
+rownames(ratingmat) = 1:6040
+colnames(ratingmat) = 1:3952
 # Convert rating matrix into a recommenderlab sparse matrix
 ratingmat <- as(ratingmat, "realRatingMatrix")
 dim(ratingmat)
@@ -316,6 +327,13 @@ Build Recommender Model using User-Based Collaborative Filtering using `recommen
 # Create Recommender Model using User-Based Collaborative Filtering
 UBCF_model <- Recommender(getData(eval_sets, "train"), "UBCF", 
                            param=list(normalize = "Z-score",method="Cosine",nn=30))
+                           
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# Save the model
+saveRDS(UBCF_model, file = "data/UBCF_recommender.rds")
+# UBCF_model <- readRDS("data/UBCF_recommender.rds")
 ```
 
 - **Evaluate your model:**
@@ -338,8 +356,9 @@ UBCF_eval_accuracy
 
 ```{r}
 # Obtain top 10 recommendations for n user in dataset
-UserID = 1
-recom <- predict(UBCF_model, ratingmat[UserID], n=items_to_recommend) 
+items_to_recommend = 10
+a_user_id = 1
+recom <- predict(UBCF_model, ratingmat[a_user_id], n=items_to_recommend) 
 recom_list <- as(recom, "list") #convert recommenderlab object to readable list
  
 # Obtain recommendations
@@ -363,6 +382,12 @@ IBCF_model <- Recommender(getData(eval_sets, "train"), "IBCF",
                            param=list(normalize = "Z-score",method="Cosine",k=30))
 ```
 
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# Save the model
+saveRDS(IBCF_model, file = "data/IBCF_recommender.rds")
+# UBCF_model <- readRDS("data/IBCF_recommender.rds")
+```
+
 - **Evaluate your model:**
 
 To evaluate the model we use the `recommenderlab` package. We first use the `predict()` function to generate predictions for the known portion of the test data. Then, the `calcPredictAccuracy()` function to calculate the error between the predictions and the unknown portions of the test data.
@@ -383,8 +408,8 @@ IBCF_eval_accuracy
 
 ```{r}
 # Obtain top 10 recommendations for n user in dataset
-UserID = 15
-recom <- predict(IBCF_model, ratingmat[UserID], n=items_to_recommend) 
+a_user_id = 15
+recom <- predict(IBCF_model, ratingmat[a_user_id], n=items_to_recommend) 
 recom_list <- as(recom, "list") #convert recommenderlab object to readable list
  
 # Obtain recommendations
@@ -409,6 +434,16 @@ kable(performance)
 ```
 
 User-based collaborative model (UBCF) outperforms Item-based collaborative model (IBCF). On the other hand, UBCF has greater computational cost and requires more resources. 
+
+
+***
+
+## Team Members Contribution:
+
+Data Preprocessing & Models: Tatiana & Noam
+Models Development: Tatiana
+Web App: Noam
+Report: Tatiana & Noam
 
 
 ***
