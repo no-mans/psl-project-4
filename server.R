@@ -24,18 +24,8 @@ get_user_ratings = function(value_list) {
   # print("value_list:")
   # print(dat[order(MovieID),])
   dat = dat[Rating > 0]
-  # dat[order(MovieID), ]$Rating
-  
-  
-  # user_movies = c(1, 4, 5, 5, NA)
-  # user_ratings = c(3, 6, 1, 4, 1)
-  # dat = data.table(MovieID = user_movies,
-  #                  Rating = user_ratings)
   dat = na.omit(dat)
-  
-  
   dat
-  
 }
 
 # read in data
@@ -63,13 +53,17 @@ shinyServer(function(input, output, session) {
     num_rows <- 20
     num_movies <- 6 # movies per row
     
+    # random sample movies to rate
+    random_movie_rows <- sample(nrow(movies), num_rows * num_movies)
+    display_movies <- movies[random_movie_rows, ]
+    
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
         list(box(width = 2,
-                 div(style = "text-align:center", img(src = movies$image_url[(i - 1) * num_movies + j], height = 150)),
+                 div(style = "text-align:center", img(src = display_movies$image_url[(i - 1) * num_movies + j], height = 150)),
                  #div(style = "text-align:center; color: #999999; font-size: 80%", books$authors[(i - 1) * num_books + j]),
-                 div(style = "text-align:center", strong(movies$Title[(i - 1) * num_movies + j])),
-                 div(style = "text-align:center; font-size: 150%; color: #f0ad4e;", ratingInput(paste0("select_", movies$MovieID[(i - 1) * num_movies + j]), label = "", dataStop = 5)))) #00c0ef
+                 div(style = "text-align:center", strong(display_movies$Title[(i - 1) * num_movies + j])),
+                 div(style = "text-align:center; font-size: 150%; color: #f0ad4e;", ratingInput(paste0("select_", display_movies$MovieID[(i - 1) * num_movies + j]), label = "", dataStop = 5)))) #00c0ef
       })))
     })
   })
