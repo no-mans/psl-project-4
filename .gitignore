@@ -6,7 +6,6 @@
 
 renv/
 renv*
-*.dat
 .idea/
 *.csv
 
